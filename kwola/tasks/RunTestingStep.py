@@ -94,17 +94,18 @@ def loadAllBugs(config):
 
     bugs = []
 
-    for fileName in os.listdir(bugsDir):
-        if ".lock" not in fileName and ".txt" not in fileName and ".mp4" not in fileName:
-            bugId = fileName
-            bugId = bugId.replace(".json", "")
-            bugId = bugId.replace(".gz", "")
-            bugId = bugId.replace(".pickle", "")
+    for errorFolder in os.listdir(bugsDir):
+        for fileName in os.listdir(os.path.join(bugsDir,errorFolder)):
+            if ".lock" not in fileName and ".txt" not in fileName and ".mp4" not in fileName:
+                bugId = fileName
+                bugId = bugId.replace(".json", "")
+                bugId = bugId.replace(".gz", "")
+                bugId = bugId.replace(".pickle", "")
+                subFolder = "bugs/" + errorFolder
+                bug = BugModel.loadBugFromDisk(bugId, config, subFolder)
 
-            bug = BugModel.loadFromDisk(bugId, config)
-
-            if bug is not None:
-                bugs.append(bug)
+                if bug is not None:
+                    bugs.append(bug)
 
     return bugs
 
@@ -288,19 +289,35 @@ def runTestingStep(configDir, testingStepId, shouldBeRandom=False, generateDebug
             bug.stepNumber = stepNumber
             bug.error = error
             bug.testingRunId = testStep.testingRunId
-            bug.saveToDisk(config, overrideSaveFormat="json", overrideCompression=0)
-            bug.saveToDisk(config)
 
-            bugTextFile = os.path.join(config.getKwolaUserDataDirectory("bugs"), bug.id + ".txt")
+            #created segmented bug type path
+            errDir = bug.error._cls
+            subFolderStr = "bugs/" + errDir
+            subFolder = os.path.join(config.getKwolaUserDataDirectory("bugs"), errDir) 
+            if not os.path.exists(subFolder):
+                getLogger().info(f"\n\n[{os.getpid()}] No folder for bug type : {subFolder}, creating...") 
+                try:
+                    os.mkdir(subFolder)
+                except FileExistsError:
+                    getLogger().info(f"\n\n[{os.getpid()}] FileExistsError")
+            else:
+                getLogger().info(f"\n\n[{os.getpid()}] placed in folder for bugs/{bug.error._cls}") 
+            #end pass segments to disksave
+
+            bug.saveToDisk(config, subFolderStr, overrideSaveFormat="json", overrideCompression=0)
+            bug.saveToDisk(config, subFolderStr)
+
+
+            bugTextFile = os.path.join(subFolder, bug.id + ".txt")
             with open(bugTextFile, "wt") as file:
                 file.write(bug.generateBugText())
 
-            bugVideoFilePath = os.path.join(config.getKwolaUserDataDirectory("bugs"), bug.id + ".mp4")
+            bugVideoFilePath = os.path.join(subFolder, bug.id + ".mp4")
             with open(os.path.join(kwolaVideoDirectory, f'{str(executionSessionId)}.mp4'), "rb") as origFile:
                 with open(bugVideoFilePath, 'wb') as cloneFile:
                     cloneFile.write(origFile.read())
 
-            debugVideoSubprocess = multiprocessing.Process(target=createDebugVideoSubProcess, args=(configDir, str(executionSessionId), f"{bug.id}_bug", False, False, stepNumber, "bugs"))
+            debugVideoSubprocess = multiprocessing.Process(target=createDebugVideoSubProcess, args=(configDir, str(executionSessionId), f"{bug.id}_bug", False, False, stepNumber, subFolderStr))
             atexit.register(lambda: debugVideoSubprocess.terminate())
             debugVideoSubprocesses.append(debugVideoSubprocess)
 

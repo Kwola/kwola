@@ -44,13 +44,18 @@ class BugModel(Document):
 
     reproductionTraces = ListField(StringField())
 
-    def saveToDisk(self, config, overrideSaveFormat=None, overrideCompression=None):
-        saveObjectToDisk(self, "bugs", config, overrideSaveFormat=overrideSaveFormat, overrideCompression=overrideCompression)
+    def saveToDisk(self, config, subFolderStr, overrideSaveFormat=None, overrideCompression=None):
+        saveObjectToDisk(self, subFolderStr, config, overrideSaveFormat=overrideSaveFormat, overrideCompression=overrideCompression)
 
 
     @staticmethod
     def loadFromDisk(id, config, printErrorOnFailure=True):
+
         return loadObjectFromDisk(BugModel, id, "bugs", config, printErrorOnFailure=printErrorOnFailure)
 
+    def loadBugFromDisk(id, config, subFolder, printErrorOnFailure=True):
+
+        return loadObjectFromDisk(BugModel, id, subFolder, config, printErrorOnFailure=printErrorOnFailure)
+            
     def generateBugText(self):
         return self.error.generateErrorDescription()
